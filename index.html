@@ -1,53 +1,101 @@
 <!doctype html>
-<html>
+<html lang="th">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Class Counter</title>
 <style>
+  html,body{height:100%;background:#ffffff;margin:0}
   *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  .card{max-width:520px;margin:0 auto;padding:16px;border:1px solid #eee;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.06)}
-  .title{font-size:18px;font-weight:700;margin-bottom:6px}
-  .sub{color:#666;font-size:14px;margin-bottom:12px}
-  .barWrap{width:100%;height:14px;background:#eee;border-radius:7px;overflow:hidden}
+  .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px;background:#ffffff}
+  .card{width:100%;max-width:560px;background:#fff;padding:16px;border:1px solid #eee;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+  .title{font-size:20px;font-weight:800;margin-bottom:4px;color:#0f172a}
+  .meta{color:#475569;font-size:14px;margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .chip{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:4px 10px}
+  .sub{color:#334155;font-size:15px;margin-bottom:12px}
+  .barWrap{width:100%;height:14px;background:#e2e8f0;border-radius:7px;overflow:hidden}
   .bar{height:100%;width:0;background:linear-gradient(90deg,#6ea8fe,#3b82f6);transition:width .4s ease}
   .row{display:flex;gap:10px;margin-top:10px}
-  .box{flex:1;background:#fafafa;border-radius:10px;padding:10px;text-align:center}
-  .big{font-size:22px;font-weight:800}
-  .lbl{font-size:12px;color:#777}
-  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:#666;font-size:12px}
+  .box{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;text-align:center}
+  .big{font-size:24px;font-weight:900;color:#0f172a}
+  .lbl{font-size:12px;color:#64748b}
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:#64748b;font-size:12px}
   .badge{padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:12px;background:#10b981}
   .full{background:#ef4444}
+  .hidden{display:none}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="title" id="title">–</div>
-  <div class="sub">จองแล้ว <b id="booked">0</b> / <b id="capacity">0</b> — คงเหลือ <b id="remain">0</b> ที่นั่ง</div>
-  <div class="barWrap"><div id="bar" class="bar"></div></div>
-  <div class="row">
-    <div class="box"><div class="big" id="pct">0%</div><div class="lbl">ความคืบหน้า</div></div>
-    <div class="box"><div class="big" id="status">เปิดอยู่</div><div class="lbl">สถานะ</div></div>
-  </div>
-  <div class="foot">
-    <span>อัปเดต: <span id="updated">–</span></span>
-    <span id="badge" class="badge">เหลือที่นั่ง</span>
+<div class="wrap">
+  <div class="card">
+    <div class="title" id="title">–</div>
+    <div class="meta" id="meta">
+      <span class="chip" id="daytime" class="hidden"></span>
+      <span class="chip" id="classid">–</span>
+    </div>
+
+    <div class="sub">
+      จองแล้ว <b id="booked">0</b> / <b id="capacity">0</b> — คงเหลือ <b id="remain">0</b> ที่นั่ง
+    </div>
+
+    <div class="barWrap"><div id="bar" class="bar"></div></div>
+
+    <div class="row">
+      <div class="box">
+        <div class="big" id="bigBooked">0</div>
+        <div class="lbl">จำนวนคนเข้าคลาส</div>
+      </div>
+      <div class="box">
+        <div class="big" id="status">เปิดอยู่</div>
+        <div class="lbl">สถานะ</div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>อัปเดต: <span id="updated">–</span></span>
+      <span id="badge" class="badge">เหลือที่นั่ง</span>
+    </div>
   </div>
 </div>
 
 <script>
 // ======= CONFIG =======
-// CSV ที่คุณ publish แล้ว (Summary sheet)
+// ใช้ CSV ที่ publish แล้ว (แท็บ Summary)
+// ควรมีหัวคอลัมน์: ClassID, Title, Capacity, Booked, Remaining, Pct, (optional) Date, Time
 const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRcNV7gAIvxWfCUlR9n7zNrJ0croc3QG9aR12qD9luA1Anda7uh7kAb7A9V078HrTeGEQTO_Pxo8LMj/pub?gid=681720724&single=true&output=csv';
 
-// เลือกคลาสด้วย ?class=C001 (ถ้าไม่ระบุ ใช้ C001 เป็นค่าเริ่มต้น)
+// เลือกคลาสด้วย ?class=C001 (ถ้าไม่ระบุ ใช้ C001)
 const CLASS_ID = new URLSearchParams(location.search).get('class') || 'C001';
 
-// parser CSV แบบง่าย (แนะนำให้ Summary ไม่มีเครื่องหมายคอมมาในข้อความ เพื่อหลีกเลี่ยงปัญหา split)
+// parser CSV แบบง่าย (แนะนำให้ Summary ไม่มีเครื่องหมายคอมมาในข้อความ)
 function parseCSV(text){
   const rows = text.trim().split(/\r?\n/).map(line => line.split(',').map(s=>s.trim()));
   const header = rows.shift();
   return rows.map(r => Object.fromEntries(r.map((v,i)=>[header[i], v])));
+}
+
+const TH_DAYS = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+function formatDayTime(dateStr, timeStr){
+  if(!dateStr && !timeStr) return '';
+  // รองรับรูปแบบวันที่ทั่วไป: YYYY-MM-DD, DD/MM/YYYY
+  let d=null;
+  if(dateStr){
+    if(/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) d = new Date(dateStr+'T00:00:00');
+    else if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)){
+      const [dd,mm,yy] = dateStr.split('/').map(Number);
+      d = new Date(yy, mm-1, dd);
+    } else {
+      const tryD = new Date(dateStr);
+      if(!isNaN(+tryD)) d = tryD;
+    }
+  }
+  let dayText = '';
+  if(d && !isNaN(+d)){
+    dayText = 'วัน' + TH_DAYS[d.getDay()];
+  }
+  const t = (timeStr||'').trim();
+  const timeText = t ? 'เวลา ' + t : '';
+  return [dayText, timeText].filter(Boolean).join(' ');
 }
 
 function render(row){
@@ -56,20 +104,35 @@ function render(row){
   const remaining= Math.max(0, capacity - booked);
   const pct      = capacity>0 ? Math.min(100, Math.round(booked*100/capacity)) : 0;
 
-  document.getElementById('title').textContent   = `${row.Title||CLASS_ID} (${row.ClassID||CLASS_ID})`;
-  document.getElementById('booked').textContent  = booked;
-  document.getElementById('capacity').textContent= capacity;
-  document.getElementById('remain').textContent  = remaining;
-  document.getElementById('pct').textContent     = pct + '%';
-  document.getElementById('bar').style.width     = pct + '%';
+  // หัวเรื่อง + ชิป
+  document.getElementById('title').textContent = row.Title || CLASS_ID;
+  document.getElementById('classid').textContent = (row.ClassID||CLASS_ID);
 
+  const dt = formatDayTime(row.Date, row.Time);
+  const dtEl = document.getElementById('daytime');
+  if(dt){ dtEl.textContent = dt; dtEl.classList.remove('hidden'); } else { dtEl.classList.add('hidden'); }
+
+  // ตัวเลขหลัก
+  document.getElementById('booked').textContent   = booked;
+  document.getElementById('capacity').textContent = capacity;
+  document.getElementById('remain').textContent   = remaining;
+
+  // เปลี่ยน metric ซ้ายให้โชว์ "จำนวนคนเข้าคลาส"
+  document.getElementById('bigBooked').textContent = booked.toString();
+
+  // แถบ progress
+  document.getElementById('bar').style.width = pct + '%';
+
+  // สถานะ + ป้าย
   const full = capacity>0 && booked>=capacity;
-  document.getElementById('status').textContent = full ? 'เต็ม' : 'เปิดอยู่';
+  const statusEl = document.getElementById('status');
   const badge = document.getElementById('badge');
-  badge.textContent = full ? 'เต็มแล้ว' : 'เหลือที่นั่ง';
+  statusEl.textContent = full ? 'เต็ม' : 'เปิดอยู่';
+  badge.textContent    = full ? 'เต็มแล้ว' : 'เหลือที่นั่ง';
   badge.classList.toggle('full', full);
 
-  document.getElementById('updated').textContent = new Date().toLocaleString();
+  // เวลาอัปเดต
+  document.getElementById('updated').textContent = new Date().toLocaleString('th-TH');
 }
 
 function load(){
@@ -87,7 +150,6 @@ function load(){
 }
 
 load();
-// รีเฟรชทุก 30 วิ
 setInterval(load, 30000);
 </script>
 </body>

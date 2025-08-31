@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Class Counter</title>
+<style>
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .card{max-width:520px;margin:0 auto;padding:16px;border:1px solid #eee;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+  .title{font-size:18px;font-weight:700;margin-bottom:6px}
+  .sub{color:#666;font-size:14px;margin-bottom:12px}
+  .barWrap{width:100%;height:14px;background:#eee;border-radius:7px;overflow:hidden}
+  .bar{height:100%;width:0;background:linear-gradient(90deg,#6ea8fe,#3b82f6);transition:width .4s ease}
+  .row{display:flex;gap:10px;margin-top:10px}
+  .box{flex:1;background:#fafafa;border-radius:10px;padding:10px;text-align:center}
+  .big{font-size:22px;font-weight:800}
+  .lbl{font-size:12px;color:#777}
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:#666;font-size:12px}
+  .badge{padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:12px;background:#10b981}
+  .full{background:#ef4444}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="title" id="title">–</div>
+  <div class="sub">จองแล้ว <b id="booked">0</b> / <b id="capacity">0</b> — คงเหลือ <b id="remain">0</b> ที่นั่ง</div>
+  <div class="barWrap"><div id="bar" class="bar"></div></div>
+  <div class="row">
+    <div class="box"><div class="big" id="pct">0%</div><div class="lbl">ความคืบหน้า</div></div>
+    <div class="box"><div class="big" id="status">เปิดอยู่</div><div class="lbl">สถานะ</div></div>
+  </div>
+  <div class="foot">
+    <span>อัปเดต: <span id="updated">–</span></span>
+    <span id="badge" class="badge">เหลือที่นั่ง</span>
+  </div>
+</div>
+
+<script>
+// ======= CONFIG =======
+// CSV ที่คุณ publish แล้ว (Summary sheet)
+const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRcNV7gAIvxWfCUlR9n7zNrJ0croc3QG9aR12qD9luA1Anda7uh7kAb7A9V078HrTeGEQTO_Pxo8LMj/pub?gid=681720724&single=true&output=csv';
+
+// เลือกคลาสด้วย ?class=C001 (ถ้าไม่ระบุ ใช้ C001 เป็นค่าเริ่มต้น)
+const CLASS_ID = new URLSearchParams(location.search).get('class') || 'C001';
+
+// parser CSV แบบง่าย (แนะนำให้ Summary ไม่มีเครื่องหมายคอมมาในข้อความ เพื่อหลีกเลี่ยงปัญหา split)
+function parseCSV(text){
+  const rows = text.trim().split(/\r?\n/).map(line => line.split(',').map(s=>s.trim()));
+  const header = rows.shift();
+  return rows.map(r => Object.fromEntries(r.map((v,i)=>[header[i], v])));
+}
+
+function render(row){
+  const booked   = Number(row.Booked||0);
+  const capacity = Number(row.Capacity||0);
+  const remaining= Math.max(0, capacity - booked);
+  const pct      = capacity>0 ? Math.min(100, Math.round(booked*100/capacity)) : 0;
+
+  document.getElementById('title').textContent   = `${row.Title||CLASS_ID} (${row.ClassID||CLASS_ID})`;
+  document.getElementById('booked').textContent  = booked;
+  document.getElementById('capacity').textContent= capacity;
+  document.getElementById('remain').textContent  = remaining;
+  document.getElementById('pct').textContent     = pct + '%';
+  document.getElementById('bar').style.width     = pct + '%';
+
+  const full = capacity>0 && booked>=capacity;
+  document.getElementById('status').textContent = full ? 'เต็ม' : 'เปิดอยู่';
+  const badge = document.getElementById('badge');
+  badge.textContent = full ? 'เต็มแล้ว' : 'เหลือที่นั่ง';
+  badge.classList.toggle('full', full);
+
+  document.getElementById('updated').textContent = new Date().toLocaleString();
+}
+
+function load(){
+  fetch(SHEET_CSV, {cache:'no-store'})
+    .then(r=>r.text())
+    .then(t=>{
+      const rows = parseCSV(t);
+      const row  = rows.find(x => (x.ClassID||'').trim() === CLASS_ID);
+      if(!row) throw new Error('ไม่พบ ClassID นี้ใน Summary: ' + CLASS_ID);
+      render(row);
+    })
+    .catch(err=>{
+      document.body.innerHTML = '<p style="padding:16px;color:#ef4444">Error: '+err.message+'</p>';
+    });
+}
+
+load();
+// รีเฟรชทุก 30 วิ
+setInterval(load, 30000);
+</script>
+</body>
+</html>
